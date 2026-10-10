@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="data:," />
+  <title>Music Theory Synthesizer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --paper:#f4f5ef; --ink:#13211b; --muted:#526159; --panel:#ffffff; --line:#ced8d0;
+      --acid:#b9ef3b; --acid-ink:#172407; --coral:#ff715b; --blue:#2677ff; --lav:#8e65ff;
+      --viz:#0b1712; --viz-grid:#203a30; --viz-line:#b9ef3b; --shadow:0 12px 36px rgba(20,45,32,.10);
+      --radius:18px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --paper:#0d1411; --ink:#edf5ef; --muted:#aebbb3; --panel:#151e1a; --line:#314139;
+        --acid:#c8f75b; --acid-ink:#172407; --coral:#ff806b; --blue:#70a2ff; --lav:#ab8cff;
+        --viz:#050a08; --viz-grid:#173028; --viz-line:#c8f75b; --shadow:0 12px 36px rgba(0,0,0,.28); }
+    }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--ink); font-family:"Avenir Next","Segoe UI",system-ui,sans-serif; line-height:1.45; }
+    button,select,input { font:inherit; }
+    button,select,.file-button { min-height:44px; }
+    button { color:inherit; }
+    button:focus-visible,select:focus-visible,input:focus-visible,.file-button:focus-within { outline:3px solid var(--blue); outline-offset:2px; }
+    .app { width:min(1440px,100%); margin:auto; padding:clamp(14px,2vw,28px); }
+    .topline { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:20px; }
+    .topline h1 { margin:0; max-width:800px; font-size:clamp(29px,4.2vw,54px); line-height:1.02; letter-spacing:-.04em; }
+    .topline p { margin:10px 0 0; max-width:690px; color:var(--muted); font-size:clamp(15px,1.4vw,18px); }
+    .level { flex:none; background:var(--ink); color:var(--paper); padding:10px 13px; border-radius:999px; font-weight:800; font-size:13px; }
+    .layout { display:grid; grid-template-columns:minmax(250px,310px) minmax(0,1fr); gap:20px; align-items:start; }
+    .coach { position:sticky; top:14px; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .coach-head { padding:20px 20px 16px; border-bottom:1px solid var(--line); }
+    .eyebrow { margin:0 0 4px; font:700 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+    .coach h2 { margin:0; font-size:22px; line-height:1.15; }
+    .xpbar { height:8px; margin-top:16px; background:var(--line); border-radius:99px; overflow:hidden; }
+    .xpbar > span { display:block; width:25%; height:100%; background:var(--acid); transition:width .3s ease; }
+    .lesson-list { padding:8px; display:grid; gap:4px; }
+    .lesson { display:grid; grid-template-columns:34px 1fr; gap:10px; align-items:center; padding:10px; border-radius:12px; border:0; background:transparent; text-align:left; width:100%; cursor:pointer; }
+    .lesson:hover:not(:disabled) { background:color-mix(in srgb,var(--acid) 12%,transparent); }
+    .lesson.active { background:color-mix(in srgb,var(--acid) 22%,transparent); }
+    .lesson:disabled { cursor:not-allowed; opacity:.48; }
+    .lesson .num { width:32px; height:32px; display:grid; place-items:center; border-radius:50%; border:2px solid var(--line); font-weight:900; }
+    .lesson .num svg { width:14px; height:14px; stroke:currentColor; }
+    .lesson.done .num { border-color:var(--acid); background:var(--acid); color:var(--acid-ink); }
+    .lesson strong,.lesson small { display:block; }
+    .lesson small { color:var(--muted); margin-top:2px; }
+    .coach-body { padding:16px 20px 20px; border-top:1px solid var(--line); }
+    .coach-body p { margin:0 0 14px; }
+    .theory { font-size:14px; color:var(--muted); }
+    .coach-actions { display:grid; grid-template-columns:1fr auto; gap:8px; }
+    .returning { margin-top:14px; border-top:1px solid var(--line); padding-top:12px; }
+    .returning > p { margin:0; color:var(--muted); font-size:13px; font-weight:800; }
+    .returning-tools { display:grid; gap:8px; margin-top:10px; }
+    .returning-tools .secondary { width:100%; }
+    .primary,.secondary,.icon-btn,.file-button { border:0; border-radius:12px; padding:10px 14px; font-weight:850; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; }
+    .primary { background:var(--acid); color:var(--acid-ink); }
+    .secondary,.file-button { background:transparent; border:1px solid var(--line); }
+    .primary:active,.secondary:active,.file-button:active { transform:translateY(1px); }
+    .studio { display:grid; gap:16px; min-width:0; }
+    .stage-note { margin:0; padding:12px 15px; border:1px solid color-mix(in srgb,var(--acid) 55%,var(--line)); border-radius:12px; background:color-mix(in srgb,var(--acid) 12%,var(--panel)); font-weight:750; }
+    .is-locked { display:none!important; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; }
+    .transport { padding:12px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .play { min-width:108px; }
+    .transport-group { display:flex; align-items:center; gap:8px; padding:0 10px; border-left:1px solid var(--line); }
+    .transport label { font-size:12px; color:var(--muted); font-weight:800; }
+    .transport select,.transport input[type="number"] { background:var(--paper); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:7px 8px; min-height:40px; }
+    .transport input[type="range"] { width:95px; accent-color:var(--acid); }
+    .bpm { width:74px; }
+    .viz { padding:0; position:relative; background:var(--viz); min-height:210px; }
+    #visualizer { width:100%; height:240px; display:block; }
+    .viz-caption { position:absolute; left:18px; top:15px; display:flex; gap:8px; align-items:center; color:#dbe8df; font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.06em; text-transform:uppercase; }
+    .live-dot { width:8px; height:8px; border-radius:50%; background:var(--coral); box-shadow:0 0 0 5px rgba(255,113,91,.13); }
+    .section-head { padding:16px 18px 8px; display:flex; justify-content:space-between; gap:12px; align-items:end; }
+    .section-head h2 { margin:0; font-size:20px; }
+    .section-head p { margin:0; color:var(--muted); font-size:13px; }
+    .sequencer { padding:8px 14px 18px; }
+    .step-row { display:grid; grid-template-columns:92px repeat(16,minmax(24px,1fr)); gap:5px; align-items:center; margin-top:9px; }
+    .track-label { font-size:12px; font-weight:900; display:flex; align-items:center; gap:7px; }
+    .track-dot { width:9px; height:9px; border-radius:50%; background:var(--track); }
+    .step { aspect-ratio:1/1; min-height:28px; padding:0; border:1px solid var(--line); border-radius:7px; background:var(--paper); color:var(--muted); font:800 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace; cursor:pointer; position:relative; }
+    .step:nth-of-type(4n + 2) { border-left-width:2px; border-left-color:color-mix(in srgb,var(--ink) 45%,var(--line)); }
+    .step.on { background:var(--track); border-color:var(--track); color:#07100c; }
+    .step.playing::after { content:""; position:absolute; inset:-4px; border:2px solid var(--ink); border-radius:10px; }
+    .grid-two { display:grid; grid-template-columns:1.15fr .85fr; gap:16px; }
+    .grid-two.sound-only { grid-template-columns:1fr; }
+    .sound-panel { padding-bottom:18px; }
+    .controls { padding:8px 18px 16px; display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .knob label { display:flex; justify-content:space-between; gap:8px; font-size:12px; font-weight:800; margin-bottom:6px; }
+    .knob output { color:var(--muted); }
+    .knob input { width:100%; accent-color:var(--blue); }
+    .keyboard { padding:0 18px; display:grid; grid-template-columns:repeat(8,1fr); gap:5px; }
+    .key { border:1px solid var(--line); background:var(--paper); border-radius:8px; min-height:62px; font-weight:900; cursor:pointer; }
+    .key.black { background:var(--ink); color:var(--paper); }
+    .key.in-scale { box-shadow:inset 0 -5px var(--acid); }
+    .key:active,.key.held { background:var(--blue); color:white; }
+    .export-panel { padding:18px; display:grid; align-content:start; gap:13px; }
+    .export-panel h2 { margin:0; font-size:20px; }
+    .export-panel p { margin:0; color:var(--muted); font-size:14px; }
+    .export-actions { display:grid; gap:8px; }
+    .export-actions .primary,.export-actions .secondary,.export-actions .file-button { width:100%; }
+    .file-input { width:100%; border:1px solid var(--line); border-radius:12px; padding:8px; background:var(--paper); color:var(--ink); cursor:pointer; }
+    .file-input::file-selector-button { min-height:36px; border:0; border-radius:8px; margin-right:10px; padding:7px 11px; background:var(--ink); color:var(--paper); font-weight:800; cursor:pointer; }
+    .soundcloud-note { border-top:1px solid var(--line); padding-top:12px; }
+    .session-note { padding:0 18px 16px; color:var(--muted); font-size:12px; }
+    .toast { position:fixed; left:50%; bottom:22px; z-index:10; transform:translate(-50%,20px); opacity:0; pointer-events:none; max-width:calc(100vw - 28px); background:var(--ink); color:var(--paper); border-radius:12px; padding:11px 15px; box-shadow:var(--shadow); font-weight:750; transition:.22s ease; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media (max-width:920px) { .layout { grid-template-columns:1fr; } .coach { position:static; } .lesson-list { grid-template-columns:repeat(4,1fr); } .lesson { grid-template-columns:32px 1fr; } .lesson small { display:none; } }
+    @media (max-width:690px) {
+      .app { padding:12px; } .topline { display:block; } .level { display:inline-block; margin-top:12px; }
+      .lesson-list { grid-template-columns:1fr 1fr; }
+      .grid-two { grid-template-columns:1fr; }
+      .step-row { grid-template-columns:repeat(8,1fr); gap:6px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+      .track-label { grid-column:1/-1; }
+      .step { min-height:34px; aspect-ratio:auto; }
+      .transport-group { border-left:0; padding:0; flex:1 1 130px; }
+      .transport .play { width:100%; }
+      .controls { grid-template-columns:1fr; }
+      #visualizer { height:200px; }
+      .section-head { align-items:start; flex-direction:column; }
+    }
+    @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="topline" aria-labelledby="main-title">
+      <div>
+        <h1 id="main-title">Build a beat that makes musical sense.</h1>
+        <p>Lay down rhythm, add notes from a key, then hear how chords turn a loop into a progression. The coach checks your work as you go.</p>
+      </div>
+      <div class="level" id="levelPill">LEVEL 1 · 0 XP</div>
+    </section>
+
+    <div class="layout">
+      <aside class="coach" aria-label="Guided lessons">
+        <div class="coach-head">
+          <p class="eyebrow">Four-part quest</p>
+          <h2 id="lessonTitle">Find the pocket</h2>
+          <div class="xpbar" aria-label="Lesson progress"><span id="xpFill"></span></div>
+        </div>
+        <div class="lesson-list" id="lessonList"></div>
+        <div class="coach-body">
+          <p id="lessonPrompt">Put kick drums on beats 1 and 3, snares on 2 and 4, then add at least four hi-hats.</p>
+          <p class="theory" id="lessonTheory"><strong>Why it works:</strong> the kick anchors the downbeat; the snare answers on the backbeat.</p>
+          <div class="coach-actions">
+            <button class="primary" id="checkLesson">Check my loop</button>
+            <button class="secondary" id="hintLesson" aria-label="Build suggested pattern">Hint</button>
+          </div>
+          <div class="returning">
+            <p>Keep or reopen your work</p>
+            <div class="returning-tools">
+              <button class="secondary" id="saveProject">Download current project</button>
+              <label class="secondary" for="loadProject">Open project file</label><input id="loadProject" type="file" accept="application/json,.json" hidden />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="studio" aria-label="Beat studio">
+        <p class="stage-note" id="stageNote">Start with rhythm. Bass, harmony, and export unlock as you finish each lesson.</p>
+        <div class="panel transport">
+          <button class="primary play" id="playBtn" aria-pressed="false"><span aria-hidden="true">▶</span> Play loop</button>
+          <div class="transport-group">
+            <label for="bpm">Tempo</label>
+            <input class="bpm" id="bpm" type="number" min="60" max="180" value="104" inputmode="numeric" />
+            <span class="eyebrow" style="margin:0">BPM</span>
+          </div>
+          <div class="transport-group">
+            <label for="swing">Swing</label>
+            <input id="swing" type="range" min="0" max="60" value="12" />
+            <output id="swingOut">12%</output>
+          </div>
+          <div class="transport-group is-locked" id="keyControls">
+            <label for="keySelect">Key</label>
+            <select id="keySelect"><option>C</option><option>C♯</option><option>D</option><option>E♭</option><option>E</option><option>F</option><option>F♯</option><option>G</option><option>A♭</option><option>A</option><option>B♭</option><option>B</option></select>
+            <select id="scaleSelect" aria-label="Scale"><option value="minor">Minor</option><option value="major">Major</option><option value="dorian">Dorian</option></select>
+          </div>
+        </div>
+
+        <div class="panel viz" aria-label="Audio visualizer">
+          <canvas id="visualizer"></canvas>
+          <div class="viz-caption"><span class="live-dot"></span><span id="vizStatus">Ready for sound</span></div>
+        </div>
+
+        <div class="panel">
+          <div class="section-head">
+            <div><p class="eyebrow">16 steps · 1 bar</p><h2>Pattern</h2></div>
+            <p id="patternHelp">Start with kick, snare, and hi-hat.</p>
+          </div>
+          <div class="sequencer" id="sequencer"></div>
+        </div>
+
+        <div class="grid-two sound-only is-locked" id="advancedTools">
+          <div class="panel sound-panel" id="soundPanel">
+            <div class="section-head"><div><p class="eyebrow">Play it yourself</p><h2>Synth voice</h2></div><p id="scaleReadout">C minor · C D♭ E♭ F G A♭ B♭</p></div>
+            <div class="controls">
+              <div class="knob"><label for="wave">Waveform <output id="waveOut">Saw</output></label><input id="wave" type="range" min="0" max="2" value="1" /></div>
+              <div class="knob"><label for="cutoff">Tone <output id="cutoffOut">Bright</output></label><input id="cutoff" type="range" min="300" max="5000" value="2300" /></div>
+              <div class="knob"><label for="release">Release <output id="releaseOut">0.35s</output></label><input id="release" type="range" min="5" max="120" value="35" /></div>
+            </div>
+            <div class="keyboard" id="keyboard" aria-label="Playable chromatic keyboard"></div>
+          </div>
+
+          <div class="panel export-panel is-locked" id="exportPanel">
+            <p class="eyebrow">Keep what you made</p>
+            <h2>Export your loop</h2>
+            <p>MP3 renders four repeats of the current bar. A project file keeps the exact pattern so you can reopen it later.</p>
+            <div class="export-actions">
+              <button class="primary" id="mp3Btn">Download MP3</button>
+            </div>
+            <p class="soundcloud-note"><strong>To publish:</strong> download the MP3, open SoundCloud, choose Upload, and select the file.</p>
+          </div>
+        </div>
+        <p class="session-note">Lesson progress stays active while this page is open. Download the project if you want to keep the pattern between sessions.</p>
+      </section>
+    </div>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    var tracks = [
+      {id:'kick',name:'Kick',color:'var(--coral)',kind:'drum'},
+      {id:'snare',name:'Snare',color:'var(--blue)',kind:'drum'},
+      {id:'hat',name:'Hi-hat',color:'var(--acid)',kind:'drum'},
+      {id:'bass',name:'Bass',color:'var(--lav)',kind:'tone'},
+      {id:'chord',name:'Chord',color:'var(--acid)',kind:'tone'}
+    ];
+    var pattern={kick:Array(16).fill(0),snare:Array(16).fill(0),hat:Array(16).fill(0),bass:Array(16).fill(0),chord:Array(16).fill(0)};
+    var degrees=[1,3,5,7], currentLesson=0, completed=[false,false,false,false], xp=0;
+    var lessons=[
+      {title:'Find the pocket',short:'Rhythm',prompt:'Put kick drums on beats 1 and 3, snares on 2 and 4, then add at least four hi-hats.',theory:'The kick anchors the downbeat; the snare answers on the backbeat.',check:function(){return pattern.kick[0]&&pattern.kick[8]&&pattern.snare[4]&&pattern.snare[12]&&pattern.hat.filter(Boolean).length>=4;},hint:function(){[0,8].forEach(function(i){pattern.kick[i]=1});[4,12].forEach(function(i){pattern.snare[i]=1});[0,2,4,6,8,10,12,14].forEach(function(i){pattern.hat[i]=1});}},
+      {title:'Give it a root',short:'Bass',prompt:'Add at least three bass notes. Make sure one of them is scale degree 1, the root of your key.',theory:'The root tells the ear where home is. Degrees 3 and 5 add shape without leaving the key.',check:function(){return pattern.bass.filter(Boolean).length>=3&&pattern.bass.indexOf(1)>-1;},hint:function(){pattern.bass[0]=1;pattern.bass[6]=5;pattern.bass[8]=1;pattern.bass[14]=3;}},
+      {title:'Stack a harmony',short:'Chords',prompt:'Add at least two chord hits. Each hit builds a triad from the selected scale degree.',theory:'A triad stacks every other note: 1–3–5. Starting that shape on another degree changes the mood.',check:function(){return pattern.chord.filter(Boolean).length>=2;},hint:function(){pattern.chord[0]=1;pattern.chord[8]=5;}},
+      {title:'Make it move',short:'Perform',prompt:'Press Play and listen for the conversation between drums, bass, and harmony. Adjust tempo or swing until it feels right.',theory:'Swing delays alternating sixteenth notes. A little creates motion; too much can pull the groove apart.',check:function(){return hasPlayed;},hint:function(){startPlayback();}}
+    ];
+    var audioCtx=null, master=null, analyser=null, timer=null, step=0, nextStepTime=0, isPlaying=false, hasPlayed=false, raf=0;
+    var waveTypes=['sine','sawtooth','square'];
+    var keyNames=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+    var chromatic=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+    var intervals={minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11],dorian:[0,2,3,5,7,9,10]};
+    var lessonList=document.getElementById('lessonList'), sequencer=document.getElementById('sequencer'), keyboard=document.getElementById('keyboard');
+
+    function getStage(){var i=0;while(i<completed.length&&completed[i])i++;return i;}
+    function renderProgressiveUI(){
+      var stage=getStage(),keyControls=document.getElementById('keyControls'),advanced=document.getElementById('advancedTools'),exportPanel=document.getElementById('exportPanel'),note=document.getElementById('stageNote');
+      keyControls.classList.toggle('is-locked',stage<1);
+      advanced.classList.toggle('is-locked',stage<1);
+      exportPanel.classList.toggle('is-locked',stage<4);
+      advanced.classList.toggle('sound-only',stage<4);
+      note.textContent=[
+        'Start with rhythm. Bass, harmony, and export unlock as you finish each lesson.',
+        'Rhythm is set. Choose a key and add a bass line.',
+        'Bass is in. Chords are now available in the pattern.',
+        'The core studio is open. Play the loop, adjust the groove, then check the lesson.',
+        'Quest complete. Export your loop or download the project.'
+      ][stage];
+      document.getElementById('patternHelp').textContent=stage===0?'Start with kick, snare, and hi-hat.':'Tap tonal steps to cycle scale degrees 1, 3, 5, 7.';
+    }
+    function renderLessons(){
+      var stage=getStage();
+      lessonList.innerHTML='';
+      lessons.forEach(function(l,i){var b=document.createElement('button'),locked=i>stage,mark=completed[i]?'✓':(locked?'<svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>':i+1);b.className='lesson'+(i===currentLesson?' active':'')+(completed[i]?' done':'');b.disabled=locked;b.innerHTML='<span class="num">'+mark+'</span><span><strong>'+l.short+'</strong><small>'+(locked?'Locked':l.title)+'</small></span>';b.onclick=function(){currentLesson=i;renderLessons();renderCoach();};lessonList.appendChild(b);});
+      document.getElementById('xpFill').style.width=((completed.filter(Boolean).length/4)*100)+'%';
+      document.getElementById('levelPill').textContent='LEVEL '+(1+Math.floor(xp/100))+' · '+xp+' XP';
+      renderProgressiveUI();
+    }
+    function renderCoach(){var l=lessons[currentLesson];document.getElementById('lessonTitle').textContent=l.title;document.getElementById('lessonPrompt').textContent=l.prompt;document.getElementById('lessonTheory').innerHTML='<strong>Why it works:</strong> '+l.theory;document.getElementById('checkLesson').textContent=completed[currentLesson]?'Complete ✓':'Check my loop';}
+    function renderSequencer(){
+      sequencer.innerHTML='';
+      var stage=getStage();
+      tracks.filter(function(t){return t.kind==='drum'||(t.id==='bass'&&stage>=1)||(t.id==='chord'&&stage>=2);}).forEach(function(t){var row=document.createElement('div');row.className='step-row';row.style.setProperty('--track',t.color);var lab=document.createElement('div');lab.className='track-label';lab.innerHTML='<span class="track-dot"></span>'+t.name;row.appendChild(lab);
+        for(var i=0;i<16;i++){(function(idx){var b=document.createElement('button');b.className='step'+(pattern[t.id][idx]?' on':'');b.dataset.track=t.id;b.dataset.step=idx;b.setAttribute('aria-label',t.name+' step '+(idx+1));b.setAttribute('aria-pressed',pattern[t.id][idx]?'true':'false');b.textContent=t.kind==='tone'&&pattern[t.id][idx]?pattern[t.id][idx]:((idx%4===0)?(idx/4+1):'');b.onclick=function(){if(t.kind==='drum'){pattern[t.id][idx]=pattern[t.id][idx]?0:1;}else{var pos=degrees.indexOf(pattern[t.id][idx]);pattern[t.id][idx]=pos===-1?1:(pos===degrees.length-1?0:degrees[pos+1]);}renderSequencer();};row.appendChild(b);})(i);}
+        sequencer.appendChild(row);
+      });
+    }
+    function scaleNotes(){var root=keyNames.indexOf(document.getElementById('keySelect').value);return intervals[document.getElementById('scaleSelect').value].map(function(x){return (root+x)%12;});}
+    function degreeMidi(degree,octave){var root=keyNames.indexOf(document.getElementById('keySelect').value);var ints=intervals[document.getElementById('scaleSelect').value];var index=(degree-1)%7;return 12*(octave+1)+root+ints[index];}
+    function midiHz(m){return 440*Math.pow(2,(m-69)/12);}
+    function updateScale(){var notes=scaleNotes();document.getElementById('scaleReadout').textContent=document.getElementById('keySelect').value+' '+document.getElementById('scaleSelect').value+' · '+notes.map(function(n){return chromatic[n]}).join(' ');renderKeyboard();}
+    function renderKeyboard(){var root=keyNames.indexOf(document.getElementById('keySelect').value), inScale=scaleNotes();keyboard.innerHTML='';for(var i=0;i<8;i++){(function(n){var pc=(root+n)%12,b=document.createElement('button');b.className='key '+([1,3,6,8,10].indexOf(pc)>-1?'black ':'')+(inScale.indexOf(pc)>-1?'in-scale':'');b.textContent=chromatic[pc];b.setAttribute('aria-label','Play '+chromatic[pc]);b.onpointerdown=function(){b.classList.add('held');playSynth(midiHz(60+pc),.55);};b.onpointerup=b.onpointerleave=function(){b.classList.remove('held');};keyboard.appendChild(b);})(i);}}
+    function ensureAudio(){if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();master=audioCtx.createGain();master.gain.value=.52;analyser=audioCtx.createAnalyser();analyser.fftSize=1024;master.connect(analyser);analyser.connect(audioCtx.destination);drawVisualizer();}if(audioCtx.state==='suspended')audioCtx.resume();}
+    function envGain(ctx,dest,time,vol,dur){var g=ctx.createGain();g.gain.setValueAtTime(0,time);g.gain.linearRampToValueAtTime(vol,time+.008);g.gain.exponentialRampToValueAtTime(.0001,time+dur);g.connect(dest);return g;}
+    function kick(ctx,dest,time){var o=ctx.createOscillator(),g=envGain(ctx,dest,time,.9,.28);o.frequency.setValueAtTime(145,time);o.frequency.exponentialRampToValueAtTime(48,time+.16);o.connect(g);o.start(time);o.stop(time+.3);}
+    function snare(ctx,dest,time){var len=Math.floor(ctx.sampleRate*.16),buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);for(var i=0;i<len;i++)d[i]=Math.random()*2-1;var src=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=envGain(ctx,dest,time,.36,.16);f.type='highpass';f.frequency.value=1100;src.buffer=buf;src.connect(f);f.connect(g);src.start(time);}
+    function hat(ctx,dest,time){var len=Math.floor(ctx.sampleRate*.05),buf=ctx.createBuffer(1,len,ctx.sampleRate),d=buf.getChannelData(0);for(var i=0;i<len;i++)d[i]=Math.random()*2-1;var src=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=envGain(ctx,dest,time,.15,.05);f.type='highpass';f.frequency.value=6200;src.buffer=buf;src.connect(f);f.connect(g);src.start(time);}
+    function tone(ctx,dest,time,freq,dur,vol,wave){var o=ctx.createOscillator(),f=ctx.createBiquadFilter(),g=envGain(ctx,dest,time,vol,Math.max(.08,dur));o.type=wave||waveTypes[+document.getElementById('wave').value];o.frequency.value=freq;f.type='lowpass';f.frequency.value=+document.getElementById('cutoff').value;o.connect(f);f.connect(g);o.start(time);o.stop(time+dur+.08);}
+    function playSynth(freq,dur){ensureAudio();tone(audioCtx,master,audioCtx.currentTime,freq,+document.getElementById('release').value/100+.2,.22);}
+    function scheduleStep(s,time,ctx,dest){if(pattern.kick[s])kick(ctx,dest,time);if(pattern.snare[s])snare(ctx,dest,time);if(pattern.hat[s])hat(ctx,dest,time);if(pattern.bass[s])tone(ctx,dest,time,midiHz(degreeMidi(pattern.bass[s],2)),.21,.28,'square');if(pattern.chord[s]){var base=pattern.chord[s];[base,base+2,base+4].forEach(function(d){tone(ctx,dest,time,midiHz(degreeMidi(d,3)),.42,.075,'sawtooth');});}}
+    function stepSeconds(){return 60/Math.max(60,Math.min(180,+document.getElementById('bpm').value||104))/4;}
+    function scheduler(){while(nextStepTime<audioCtx.currentTime+.1){var swing=+document.getElementById('swing').value/100,delay=(step%2?swing*stepSeconds()*.65:0);scheduleStep(step,nextStepTime+delay,audioCtx,master);markPlaying(step);nextStepTime+=stepSeconds();step=(step+1)%16;}}
+    function markPlaying(s){window.setTimeout(function(){document.querySelectorAll('.step.playing').forEach(function(x){x.classList.remove('playing')});document.querySelectorAll('.step[data-step="'+s+'"]').forEach(function(x){x.classList.add('playing')});},Math.max(0,(nextStepTime-audioCtx.currentTime)*1000));}
+    function startPlayback(){ensureAudio();if(isPlaying)return;isPlaying=true;hasPlayed=true;step=0;nextStepTime=audioCtx.currentTime+.04;timer=setInterval(scheduler,25);scheduler();var b=document.getElementById('playBtn');b.innerHTML='<span aria-hidden="true">■</span> Stop';b.setAttribute('aria-pressed','true');document.getElementById('vizStatus').textContent='Loop playing';}
+    function stopPlayback(){if(!isPlaying)return;isPlaying=false;clearInterval(timer);document.querySelectorAll('.step.playing').forEach(function(x){x.classList.remove('playing')});var b=document.getElementById('playBtn');b.innerHTML='<span aria-hidden="true">▶</span> Play loop';b.setAttribute('aria-pressed','false');document.getElementById('vizStatus').textContent='Ready for sound';}
+    function drawVisualizer(){var c=document.getElementById('visualizer'),ctx=c.getContext('2d'),data=new Uint8Array(analyser.frequencyBinCount);function frame(){var dpr=window.devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(c.width!==w*dpr||c.height!==h*dpr){c.width=w*dpr;c.height=h*dpr;}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--viz').trim();ctx.fillRect(0,0,w,h);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--viz-grid').trim();ctx.lineWidth=1;for(var x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}for(var y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}analyser.getByteTimeDomainData(data);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--viz-line').trim();ctx.lineWidth=3;ctx.beginPath();for(var i=0;i<data.length;i++){var px=i/(data.length-1)*w,py=(data[i]/255)*h;if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.stroke();raf=requestAnimationFrame(frame);}frame();}
+    function drawIdle(){var c=document.getElementById('visualizer'),ctx=c.getContext('2d'),dpr=window.devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*dpr;c.height=h*dpr;ctx.scale(dpr,dpr);ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--viz').trim();ctx.fillRect(0,0,w,h);ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--viz-grid').trim();for(var x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--viz-line').trim();ctx.lineWidth=3;ctx.beginPath();for(var i=0;i<=w;i+=4){ctx.lineTo(i,h/2+Math.sin(i/28)*8);}ctx.stroke();}
+    function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._timer);t._timer=setTimeout(function(){t.classList.remove('show')},2800);}
+    function checkLesson(){var ok=lessons[currentLesson].check();if(ok){if(!completed[currentLesson]){completed[currentLesson]=true;xp+=25;}toast(currentLesson===3?'Quest complete. Export unlocked.':'Nice. +25 XP · New tools unlocked.');if(currentLesson<3)currentLesson++;renderLessons();renderCoach();renderSequencer();}else{toast(currentLesson===3?'Play the loop once, then check again.':'Not quite yet. Use the coach prompt or tap Hint.');}}
+    function applyHint(){lessons[currentLesson].hint();renderSequencer();toast('Suggested notes added. Change anything you like.');}
+    function projectData(){return {version:2,bpm:+document.getElementById('bpm').value,swing:+document.getElementById('swing').value,key:document.getElementById('keySelect').value,scale:document.getElementById('scaleSelect').value,wave:+document.getElementById('wave').value,cutoff:+document.getElementById('cutoff').value,release:+document.getElementById('release').value,pattern:pattern,completed:completed,currentLesson:currentLesson,xp:xp};}
+    function download(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);}
+    function saveProject(){download(new Blob([JSON.stringify(projectData(),null,2)],{type:'application/json'}),'my-beat-project.json');toast('Project downloaded');}
+    function loadProject(file){var r=new FileReader();r.onload=function(){try{var p=JSON.parse(r.result);if(!p.pattern||!tracks.every(function(t){return Array.isArray(p.pattern[t.id])&&p.pattern[t.id].length===16}))throw new Error('format');pattern=p.pattern;document.getElementById('bpm').value=Math.max(60,Math.min(180,p.bpm||104));document.getElementById('swing').value=p.swing||0;document.getElementById('keySelect').value=keyNames.indexOf(p.key)>-1?p.key:'C';document.getElementById('scaleSelect').value=intervals[p.scale]?p.scale:'minor';document.getElementById('wave').value=p.wave||0;document.getElementById('cutoff').value=p.cutoff||2300;document.getElementById('release').value=p.release||35;if(Array.isArray(p.completed)&&p.completed.length===4){completed=p.completed.map(Boolean);xp=Math.max(0,+p.xp||completed.filter(Boolean).length*25);}else{completed=[lessons[0].check(),false,false,false];if(completed[0])completed[1]=lessons[1].check();if(completed[1])completed[2]=lessons[2].check();xp=completed.filter(Boolean).length*25;}var stage=getStage();currentLesson=Math.max(0,Math.min(3,+p.currentLesson||stage,stage));syncControls();renderLessons();renderCoach();renderSequencer();updateScale();toast('Project opened');}catch(e){toast('That file is not a valid beat project.');}};r.readAsText(file);}
+    function renderOffline(){var bpm=Math.max(60,Math.min(180,+document.getElementById('bpm').value||104)),sec=60/bpm/4,bars=4,duration=sec*16*bars+.8,ctx=new OfflineAudioContext(2,Math.ceil(duration*44100),44100),gain=ctx.createGain();gain.gain.value=.6;gain.connect(ctx.destination);for(var bar=0;bar<bars;bar++){for(var s=0;s<16;s++){var swing=+document.getElementById('swing').value/100,tm=(bar*16+s)*sec+(s%2?swing*sec*.65:0);scheduleStep(s,tm,ctx,gain);}}return ctx.startRendering();}
+    function floatTo16(input){var out=new Int16Array(input.length);for(var i=0;i<input.length;i++){var s=Math.max(-1,Math.min(1,input[i]));out[i]=s<0?s*32768:s*32767;}return out;}
+    function exportMP3(){var btn=document.getElementById('mp3Btn');btn.disabled=true;btn.textContent='Rendering…';toast('Rendering four bars');renderOffline().then(function(buf){if(!window.lamejs||!window.lamejs.Mp3Encoder)throw new Error('encoder');var left=floatTo16(buf.getChannelData(0)),right=floatTo16(buf.getChannelData(1)),enc=new lamejs.Mp3Encoder(2,44100,128),chunks=[],block=1152;for(var i=0;i<left.length;i+=block){var mp3=enc.encodeBuffer(left.subarray(i,i+block),right.subarray(i,i+block));if(mp3.length)chunks.push(new Int8Array(mp3));}var end=enc.flush();if(end.length)chunks.push(new Int8Array(end));download(new Blob(chunks,{type:'audio/mpeg'}),'my-theory-beat.mp3');toast('MP3 downloaded');}).catch(function(){toast('The MP3 encoder could not load. Check your connection and try again.');}).finally(function(){btn.disabled=false;btn.textContent='Download MP3';});}
+    function syncControls(){document.getElementById('swingOut').textContent=document.getElementById('swing').value+'%';document.getElementById('waveOut').textContent=['Sine','Saw','Square'][+document.getElementById('wave').value];var c=+document.getElementById('cutoff').value;document.getElementById('cutoffOut').textContent=c<1200?'Warm':c<3000?'Bright':'Open';document.getElementById('releaseOut').textContent=(+document.getElementById('release').value/100).toFixed(2)+'s';}
+
+    document.getElementById('playBtn').onclick=function(){isPlaying?stopPlayback():startPlayback();};
+    document.getElementById('checkLesson').onclick=checkLesson;document.getElementById('hintLesson').onclick=applyHint;
+    document.getElementById('swing').oninput=syncControls;document.getElementById('wave').oninput=syncControls;document.getElementById('cutoff').oninput=syncControls;document.getElementById('release').oninput=syncControls;
+    document.getElementById('keySelect').onchange=updateScale;document.getElementById('scaleSelect').onchange=updateScale;
+    document.getElementById('saveProject').onclick=saveProject;document.getElementById('loadProject').onchange=function(e){if(e.target.files[0])loadProject(e.target.files[0]);};document.getElementById('mp3Btn').onclick=exportMP3;
+    renderLessons();renderCoach();renderSequencer();updateScale();syncControls();drawIdle();window.addEventListener('resize',function(){if(!audioCtx)drawIdle();});
+  })();
+  </script>
+</body>
+</html>
